@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:syncfusion_flutter_datepicker/datepicker.dart';
+import '../models/expense.dart';
 
 class NewExpense extends StatefulWidget {
-  const NewExpense({super.key});
+  const NewExpense({super.key, required this.onAddExpense});
+  final void Function(Expense expense) onAddExpense;
 
   @override
   State<NewExpense> createState() => _NewExpenseState();
@@ -11,41 +12,66 @@ class NewExpense extends StatefulWidget {
 class _NewExpenseState extends State<NewExpense> {
   final _enteredTitle = TextEditingController();
   final _enteredAmount = TextEditingController();
+  DateTime? _selectedDate;
+  Category _selectedcategory = Category.food;
 
-  void _presentDatepicker() {
+  void _presentDatepicker() async {
     final now = DateTime.now();
     final firstDate = DateTime(now.year - 1, now.month, now.day);
+    final picketDate = await showDatePicker(
+        context: context,
+        firstDate: firstDate,
+        lastDate: now,
+        initialDate: now);
 
-    SfDateRangePicker(minDate: firstDate, maxDate: now);
-
-    // showDatePicker(
-    //     context: context,
-    //     firstDate: firstDate,
-    //     lastDate: now,
-    //     initialDate: now);
+    setState(() {
+      _selectedDate = picketDate;
+    });
   }
+
+
+  void _submitExpenseData() {
+    final enteredAmount = double.tryParse(_enteredAmount.text);
+    final amountIsValid = enteredAmount == null || enteredAmount <= 0;
+    if (_enteredAmount.text.trim().isEmpty ||
+        amountIsValid ||
+        _selectedDate == null) {
+      showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+                title: const Text("Invalid Input"),
+                content: const Text("Empty Input Make sure you fill something"),
+                actions: [
+                  TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                      child: Text('Okay'))
+                ],
+              ));
+      return;
+    }
+    widget.onAddExpense(Expense(
+        title: _enteredTitle.text,
+        amount: enteredAmount,
+        date: _selectedDate!,
+        category: _selectedcategory));
+    Navigator.pop(context);
+  }
+
+ 
+
 
   void dispose() {
     _enteredTitle.dispose();
+    _enteredAmount.dispose();
     super.dispose();
-  }
-
-  String _selectedDate = '';
-
-  void _onDateSelectionChanged(DateRangePickerSelectionChangedArgs args) {
-    print('Inside methods');
-    setState(() {
-      _selectedDate = args.value.toString();
-    });
   }
 
   @override
   Widget build(BuildContext context) {
-    var now = DateTime.now();
-    final firstDate = DateTime(now.year - 1, now.month, now.day);
-
     return Padding(
-      padding: EdgeInsets.all(20),
+      padding: EdgeInsets.fromLTRB(20, 48, 20, 20),
       child: Column(
         children: [
           TextField(
@@ -72,37 +98,12 @@ class _NewExpenseState extends State<NewExpense> {
                 child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text('Select Date'),
+                Text(_selectedDate == null
+                    ? "Please Select an Date"
+                    : formatter.format(_selectedDate!)),
                 IconButton(
                     onPressed: () {
-                      setState(() {
-                        print('Set State');
-                      });
-
-                      showDialog(
-                        context: context,
-                        builder: (BuildContext context) {
-                          return AlertDialog(
-                            title: Text("Pick a Date"),
-                            content: SizedBox(
-                              height: 300, 
-                              width: 300,// Adjust height to fit picker
-                              child: SfDateRangePicker(
-                                minDate: firstDate, maxDate: now,
-                                onSelectionChanged: _onDateSelectionChanged,
-                                selectionMode:
-                                    DateRangePickerSelectionMode.single,
-                              ),
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: Text("Close"),
-                              ),
-                            ],
-                          );
-                        },
-                      );
+                      _presentDatepicker();
                     },
                     icon: Icon(Icons.calendar_month))
               ],
@@ -110,12 +111,34 @@ class _NewExpenseState extends State<NewExpense> {
           ]),
           Row(
             children: [
+              DropdownButton(
+                  value: _selectedcategory,
+                  items: Category.values
+                      .map((category) => DropdownMenuItem(
+                          value: category,
+                          child: Text(category.name.toString().toUpperCase())))
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) {
+                      return;
+                    }
+                    setState(() {
+                      _selectedcategory = value;
+                    });
+                    print(value);
+                  }),
+              const Spacer(),
               ElevatedButton(
                   onPressed: () {
+                    _submitExpenseData();
                     print(_enteredTitle.text);
                     print(_enteredAmount.text);
+                    // Navigator.pop(context);
                   },
                   child: Text("Save")),
+              const SizedBox(
+                width: 20,
+              ),
               ElevatedButton(
                   onPressed: () {
                     Navigator.pop(context);
